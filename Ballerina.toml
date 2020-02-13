@@ -1,0 +1,6 @@
+[project]
+org-name= "miyurud"
+version= "0.1.0"
+
+[dependencies]
+"wso2/msspreadsheets" = { path = "/home/miyurud/git/module-microsoftgraph/target/balo/msspreadsheets-2019r3-any-0.1.0.balo", version = "0.1.0"}
