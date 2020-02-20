@@ -1,4 +1,4 @@
-# ipass-benchmarks
+# Salesforce-Microsoft 365-WhatsApp Integration Scenario
 A Ballerina application which populates a Microsoft 365 spreadsheet with data queried from Salesforce and sends the updated spreadsheet's URL via a WhatsApp message.
 
 ![Image description](architecture.jpg)
