@@ -5,6 +5,8 @@ import ballerina/log;
 import ballerina/time;
 import ballerina/stringutils;
 import wso2/msspreadsheets;
+import wso2/msonedrive;
+import wso2/twilio;
 
 
 sfdc46:SalesforceConfiguration salesforceConfig = {
@@ -38,9 +40,21 @@ msspreadsheets:MicrosoftGraphConfiguration msGraphConfig = {
     }
 };
 
+twilio:TwilioConfiguration twilioConfig = {
+    accountSId: config:getAsString("TWILIO_ACCOUNT_SID"),
+    authToken: config:getAsString("TWILIO_AUTH_TOKEN"),
+    xAuthyKey: config:getAsString("TWILIO_AUTHY_API_KEY")
+};
+twilio:Client twilioClient = new(twilioConfig);
+
 int SIX_HOURS_IN_MILISECONDS = 21600000;
+string WORK_BOOK_NAME = "Book";
+string WORK_SHEET_NAME = "ABC";
+string TWILIO_SANDBOX_NUMBER = "+14155238886";
+string DESTINATION_PHONE_NUMBER = "+94775544041";
 
 public function main() returns @tainted error? {
+    time:Time startTime = time:currentTime();
     // Create Salesforce bulk client.
     sfdc46:SalesforceBulkClient sfBulkClient = salesforceClient->createSalesforceBulkClient();
     
@@ -76,7 +90,7 @@ public function main() returns @tainted error? {
     sfdc46:SoqlResult|sfdc46:ConnectorError response = salesforceClient->getQueryResult(<@untainted> sampleQuery);
     
     //Create Microsoft live spreadsheet client
-    msspreadsheets:MSSpreadsheetClient msGraphClient = new(msGraphConfig);
+    msspreadsheets:MSSpreadsheetClient msSpreadsheetClient = new(msGraphConfig);
     
     if (response is sfdc46:SoqlResult) {
        io:println("TotalSize:  ", response.totalSize.toString());
@@ -85,31 +99,31 @@ public function main() returns @tainted error? {
 
         if (totalNumberOfrecords > 0) {
             //May be we will have to create a new workbook
-            boolean|error result = msGraphClient->deleteWorksheet("Book", "ABC");
+            boolean|error result = msSpreadsheetClient->deleteWorksheet(WORK_BOOK_NAME, WORK_SHEET_NAME);
             if (result is boolean) {
                 io:println(result);
             } else {
                 log:printError("Error deleting worksheet", err = result);
             }
 
-            result = msGraphClient->createWorksheet("Book", "ABC");
+            result = msSpreadsheetClient->createWorksheet(WORK_BOOK_NAME, WORK_SHEET_NAME);
             if (result is boolean) {
                 io:println(result);
             } else {
                 log:printError("Error creating worksheet", err = result);
             }
 
-            result = msGraphClient->createTable("Book", "ABC", "tableOpportunities", <@untainted> ("A" + totalNumberOfrecords.toString() + ":D" + totalNumberOfrecords.toString()));
+            result = msSpreadsheetClient->createTable(WORK_BOOK_NAME, WORK_SHEET_NAME, "tableOpportunities", <@untainted> ("A" + totalNumberOfrecords.toString() + ":D" + totalNumberOfrecords.toString()));
             if (result is boolean) {
                 io:println(result);
             } else {
                 log:printError("Error creating table", err = result);
             }
 
-            result = msGraphClient->setTableheader("Book", "ABC", "tableOpportunities", 1, "Id");
-            result = msGraphClient->setTableheader("Book", "ABC", "tableOpportunities", 2, "CreatedDate");
-            result = msGraphClient->setTableheader("Book", "ABC", "tableOpportunities", 3, "AccountId");
-            result = msGraphClient->setTableheader("Book", "ABC", "tableOpportunities", 4, "CloseDate");
+            result = msSpreadsheetClient->setTableheader(WORK_BOOK_NAME, WORK_SHEET_NAME, "tableOpportunities", 1, "Id");
+            result = msSpreadsheetClient->setTableheader(WORK_BOOK_NAME, WORK_SHEET_NAME, "tableOpportunities", 2, "CreatedDate");
+            result = msSpreadsheetClient->setTableheader(WORK_BOOK_NAME, WORK_SHEET_NAME, "tableOpportunities", 3, "AccountId");
+            result = msSpreadsheetClient->setTableheader(WORK_BOOK_NAME, WORK_SHEET_NAME, "tableOpportunities", 4, "CloseDate");
 
             json[][] valuesString=[];
             int counter = 0;
@@ -123,10 +137,31 @@ public function main() returns @tainted error? {
             json data = {"values": valuesString};
 
             //Write the processed Salesforce data to Microsoft Live spreadsheet
-            result = msGraphClient->insertDataIntoTable("Book", "ABC", "tableOpportunities", <@untainted> data);
+            result = msSpreadsheetClient->insertDataIntoTable(WORK_BOOK_NAME, WORK_SHEET_NAME, "tableOpportunities", <@untainted> data);
             io:println(result);
+
+            msonedrive:OneDriveClient msOneDriveClient = new(msGraphConfig);
+
+            var workBookResponse = msOneDriveClient->getItemURL(WORK_BOOK_NAME + ".xlsx");
+            if (workBookResponse is string) {
+                io:println(workBookResponse);
+                var whatsAppResponse = twilioClient->sendWhatsAppMessage("whatsapp:" + TWILIO_SANDBOX_NUMBER, "whatsapp:" + DESTINATION_PHONE_NUMBER, "Your URL code is " + workBookResponse);
+
+                if (whatsAppResponse is twilio:WhatsAppResponse) {
+                    io:println("Message sent");
+                } else {
+                    log:printError("Error sending the WhatsApp message", err = whatsAppResponse);
+                }
+
+            } else {
+                log:printError("Error getting the WorkBook URL", err = workBookResponse);
+            }
         }
     } else {
        io:println("Error: ", response.detail()?.message.toString());
     }
+
+    time:Time endTime = time:currentTime();
+    int elapsedTime = endTime.time - startTime.time;
+    io:println("Elapsed time (ms): ", elapsedTime.toString());
 }

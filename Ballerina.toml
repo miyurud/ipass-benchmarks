@@ -4,3 +4,5 @@ version= "0.1.0"
 
 [dependencies]
 "wso2/msspreadsheets" = { path = "/home/miyurud/git/module-microsoftgraph/target/balo/msspreadsheets-2019r3-any-0.1.0.balo", version = "0.1.0"}
+"wso2/msonedrive" = { path = "/home/miyurud/git/module-microsoftgraph/target/balo/msonedrive-2019r3-any-0.1.0.balo", version = "0.1.0"}
+"wso2/twilio" = { path = "/home/miyurud/git/module-twilio/target/balo/twilio-2019r3-any-0.8.32.balo", version = "0.1.0"}
